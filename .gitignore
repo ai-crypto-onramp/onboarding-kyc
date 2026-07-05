@@ -1,0 +1,6 @@
+bin/
+*.exe
+vendor/
+.env
+*.log
+*.test/onboarding-kyc

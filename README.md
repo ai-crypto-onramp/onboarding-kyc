@@ -1,5 +1,7 @@
 # Onboarding / KYC
 
+![CI](https://github.com/ai-crypto-onramp/onboarding-kyc/actions/workflows/ci.yml/badge.svg)
+
 Go service that orchestrates identity verification (document + liveness), sanctions/PEP screening, and KYC decisioning at signup, feeding results downstream to the Policy/Risk Engine.
 
 ## Overview / Responsibilities
