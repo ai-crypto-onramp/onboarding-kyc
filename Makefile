@@ -4,7 +4,7 @@ build:
 	go build -o bin/server .
 
 test:
-	go test ./... -race
+	go test ./... -race -coverprofile=coverage.out -coverpkg=./...
 
 run:
 	go run .
@@ -19,4 +19,4 @@ docker-run:
 	docker run --rm -p 8080:8080 ai-crypto-onramp/onboarding-kyc
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ coverage.out

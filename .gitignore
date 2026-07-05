@@ -4,3 +4,4 @@ vendor/
 .env
 *.log
 *.test/onboarding-kyc
+coverage.out
