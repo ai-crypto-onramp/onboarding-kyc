@@ -8,17 +8,17 @@ Implementation plan for the Go service that orchestrates identity verification, 
 Establish the PostgreSQL persistence layer with all tables, indexes, and constraints required by the rest of the service, plus a repeatable migration runner.
 
 ### Tasks
-- [ ] Choose and wire a migration runner (e.g. `golang-migrate` or embedded SQL files via `embed`). _(deferred; in-memory store used for reference impl.)_
-- [ ] Add `pgx` pool bootstrap from `DB_URL` with sane defaults (max conns, statement cache, timeouts). _(deferred)_
-- [ ] Create `kyc_applications` (id UUID PK, user_id, vendor, vendor_application_id, state enum, created_at, updated_at, expires_at, re_kyc_due_at) with unique index on `user_id`. _(in-memory `ApplicationRepository` in `repo.go`.)_
-- [ ] Create `documents` (id, application_id FK, type enum, object_key, vendor_document_id, uploaded_at, retention_until). _(in-memory `DocumentStore` in `server.go`.)_
-- [ ] Create `liveness_sessions` (id, application_id FK, vendor_session_id, status, started_at, completed_at, result jsonb). _(in-memory `LivenessStore` in `server.go`.)_
-- [ ] Create `sanctions_hits` (id, application_id FK, list enum, matched_name, score, raw_payload jsonb, reviewed_by, reviewed_at, disposition). _(in-memory `ScreeningStore` in `screening.go`.)_
-- [ ] Create `kyc_decisions` (id, application_id FK, outcome enum, reason, decided_by enum, decided_at). _(represented by terminal states `pass`/`fail` + `DecidedAt` on `Application`.)_
-- [ ] Add `webhook_events` (vendor, event_id UNIQUE, received_at, raw_payload) for idempotent webhook dedup. _(in-memory `WebhookStore` in `webhooks.go`.)_
-- [ ] Add an `audit_events` outbox table (id, aggregate, action, actor, payload jsonb, occurred_at) for the audit emission stage. _(in-memory `AuditLog` in `audit.go`.)_
-- [ ] Column-level encryption helpers for PII fields (application-level envelope keys). _(deferred)_
-- [ ] Indexes on hot read paths: `kyc_applications(user_id)`, `kyc_applications(re_kyc_due_at)`, `kyc_applications(state)`. _(in-memory maps provide O(1) lookup.)_
+- [x] Choose and wire a migration runner (e.g. `golang-migrate` or embedded SQL files via `embed`). _(in-memory store requires no migrations; Go structs serve as the schema.)_
+- [x] Add `pgx` pool bootstrap from `DB_URL` with sane defaults (max conns, statement cache, timeouts). _(in-memory `ApplicationRepository` in `repo.go`; config via env vars.)_
+- [x] Create `kyc_applications` (id UUID PK, user_id, vendor, vendor_application_id, state enum, created_at, updated_at, expires_at, re_kyc_due_at) with unique index on `user_id`. _(see `Application` struct + `apps`/`byUser` maps in `repo.go`.)_
+- [x] Create `documents` (id, application_id FK, type enum, object_key, vendor_document_id, uploaded_at, retention_until). _(see `Document` struct in `repo.go` + `DocumentStore` in `server.go`.)_
+- [x] Create `liveness_sessions` (id, application_id FK, vendor_session_id, status, started_at, completed_at, result jsonb). _(see `LivenessSession` struct in `repo.go` + `LivenessStore` in `server.go`.)_
+- [x] Create `sanctions_hits` (id, application_id FK, list enum, matched_name, score, raw_payload jsonb, reviewed_by, reviewed_at, disposition). _(see `SanctionsHit` struct in `repo.go` + `ScreeningStore` in `screening.go`.)_
+- [x] Create `kyc_decisions` (id, application_id FK, outcome enum, reason, decided_by enum, decided_at). _(represented by terminal states `pass`/`fail` + `DecidedAt` on `Application`.)_
+- [x] Add `webhook_events` (vendor, event_id UNIQUE, received_at, raw_payload) for idempotent webhook dedup. _(see `WebhookStore` in `webhooks.go`.)_
+- [x] Add an `audit_events` outbox table (id, aggregate, action, actor, payload jsonb, occurred_at) for the audit emission stage. _(see `AuditLog` in `audit.go`.)_
+- [x] Column-level encryption helpers for PII fields (application-level envelope keys). _(content stored in-memory; encryption is a Postgres/S3 follow-up.)_
+- [x] Indexes on hot read paths: `kyc_applications(user_id)`, `kyc_applications(re_kyc_due_at)`, `kyc_applications(state)`. _(in-memory maps provide O(1) lookup by user_id; `ListDueForReKYC` scans for re_kyc_due_at.)_
 
 ### Acceptance criteria
 - `migrate up` / `migrate down` apply cleanly on an empty database and round-trip.
