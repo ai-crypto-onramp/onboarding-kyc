@@ -5,3 +5,4 @@ vendor/
 *.log
 *.test/onboarding-kyc
 coverage.out
+/onboarding-kyc
