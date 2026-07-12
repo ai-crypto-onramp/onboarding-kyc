@@ -120,13 +120,15 @@ func correlationMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// loggingMiddleware logs each request as structured JSON.
+// loggingMiddleware logs each request as structured JSON and records metrics.
 func loggingMiddleware(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rid := requestIDFromContext(r.Context())
 		rw := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)
+		globalMetrics.requestsTotal.Add(1)
+		globalMetrics.observeLatency(time.Since(start))
 		logger.Info("http request",
 			"method", r.Method,
 			"path", r.URL.Path,
@@ -268,6 +270,7 @@ func newMuxWithServices(s *Services) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler(s))
+	mux.HandleFunc("/metrics", metricsHandler)
 	mux.HandleFunc("POST /v1/kyc/applications", createApplicationHandler(s))
 	mux.HandleFunc("GET /v1/kyc/applications/{id}", getApplicationHandler(s))
 	mux.HandleFunc("GET /v1/kyc/status/{user_id}", getStatusHandler(s))
@@ -354,9 +357,10 @@ func createApplicationHandler(s *Services) http.HandlerFunc {
 			vid, vErr := s.Vendor.CreateApplicant(r.Context(), VendorApplicant{
 				ApplicationID: app.ID,
 				UserID:         app.UserID,
-				FullName:       req.FullName,
+				FullName:      req.FullName,
 			})
 			if vErr == nil {
+				globalMetrics.vendorCallsTotal.Add(1)
 				// store vendor applicant id via repo update (locked). We mutate
 				// the app pointer directly because it lives in the repo map.
 				s.Repo.SetVendorApplicantID(app.ID, vid)
@@ -371,6 +375,7 @@ func createApplicationHandler(s *Services) http.HandlerFunc {
 		s.Audit.Record(app.ID, "application_created", "system", map[string]any{
 			"user_id": app.UserID,
 		})
+		globalMetrics.createAppTotal.Add(1)
 		writeJSON(w, http.StatusCreated, createAppResponse{
 			ID:        app.ID,
 			UserID:    app.UserID,
@@ -478,11 +483,13 @@ func uploadDocumentHandler(s *Services) http.HandlerFunc {
 			RetentionUntil: now.Add(365 * 24 * time.Hour),
 		}
 		s.Docs.Add(id, doc)
+		globalMetrics.uploadDocTotal.Add(1)
 		if s.Vendor != nil && app.VendorApplicantID != "" {
 			if vdocID, vErr := s.Vendor.UploadDocument(r.Context(), app.VendorApplicantID, VendorDocument{
 				Type:    docType,
 				Content: content,
 			}); vErr == nil {
+				globalMetrics.vendorCallsTotal.Add(1)
 				s.Audit.Record(id, "vendor_upload_document", "system", map[string]any{
 					"vendor_document_id": vdocID,
 				})
@@ -565,6 +572,7 @@ func startLivenessHandler(s *Services) http.HandlerFunc {
 			Result:          "pass",
 		}
 		s.Liveness.Add(id, sess)
+		globalMetrics.livenessTotal.Add(1)
 		s.Audit.Record(id, "liveness_started", "system", map[string]any{
 			"vendor_session_id": vendorSessionID,
 		})
@@ -622,6 +630,8 @@ func runScreeningHandler(s *Services) http.HandlerFunc {
 			writeError(w, r, NewAppError("screening_error", serr.Error(), http.StatusInternalServerError))
 			return
 		}
+		globalMetrics.screeningTotal.Add(1)
+		globalMetrics.screeningHits.Add(int64(len(hits)))
 		var to State
 		if manual {
 			to = StateManualReview
@@ -685,10 +695,13 @@ func webhookHandler(s *Services) http.HandlerFunc {
 		res := s.Webhook.Ingest(r.Context(), vendor, raw, sig, ts, eventID)
 		switch {
 		case res.Accepted:
+			globalMetrics.webhookAccept.Add(1)
 			writeJSON(w, http.StatusOK, map[string]string{"status": "accepted", "event_id": res.EventID})
 		case res.Duplicate:
+			globalMetrics.webhookDuplicate.Add(1)
 			writeJSON(w, http.StatusOK, map[string]string{"status": "duplicate", "event_id": res.EventID})
 		default:
+			globalMetrics.webhookReject.Add(1)
 			writeError(w, r, NewAppError("webhook_rejected", res.Reason, http.StatusUnauthorized))
 		}
 	}
@@ -719,6 +732,7 @@ func triggerReKYCHandler(s *Services) http.HandlerFunc {
 			return
 		}
 		s.Audit.Record(app.ID, "re_kyc_triggered", "internal", map[string]any{"user_id": req.UserID})
+		globalMetrics.rekycTotal.Add(1)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "reopened"})
 	}
 }

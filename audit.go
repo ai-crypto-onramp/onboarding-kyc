@@ -57,6 +57,7 @@ func (a *AuditLog) Record(aggregate, action, actor string, payload map[string]an
 
 // RecordTransition records a state transition audit event.
 func (a *AuditLog) RecordTransition(appID string, from, to State, actor, reason string) {
+	globalMetrics.transitionsTotal.Add(1)
 	a.Record(appID, "state_transition", actor, map[string]any{
 		"from":   string(from),
 		"to":     string(to),

@@ -3,6 +3,6 @@ bin/
 vendor/
 .env
 *.log
-*.test/onboarding-kyc
-coverage.out
+*.test
 /onboarding-kyc
+coverage.out
