@@ -11,8 +11,16 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func main() {
+func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
-	_ = http.ListenAndServe(":8080", mux)
+	return mux
+}
+
+func run(addr string) error {
+	return http.ListenAndServe(addr, newMux())
+}
+
+func main() {
+	_ = run(":8080")
 }
