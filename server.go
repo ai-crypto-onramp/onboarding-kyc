@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -204,6 +205,31 @@ func (d *DocumentStore) HasRequiredDocs(appID string) bool {
 	return hasID && hasSelfie
 }
 
+// SweepExpired removes and returns the count of documents whose
+// retention_until is in the past relative to now. Removed documents are
+// hard-deleted (content zeroed then dropped from the map).
+func (d *DocumentStore) SweepExpired(now time.Time) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	removed := 0
+	for appID, docs := range d.docs {
+		kept := docs[:0]
+		for _, doc := range docs {
+			if !doc.RetentionUntil.IsZero() && !doc.RetentionUntil.After(now) {
+				// redact content before dropping
+				for i := range doc.Content {
+					doc.Content[i] = 0
+				}
+				removed++
+				continue
+			}
+			kept = append(kept, doc)
+		}
+		d.docs[appID] = kept
+	}
+	return removed
+}
+
 // LivenessStore holds liveness sessions in memory.
 type LivenessStore struct {
 	mu       sync.Mutex
@@ -233,10 +259,40 @@ func (l *LivenessStore) Latest(appID string) (LivenessSession, bool) {
 	return s[len(s)-1], true
 }
 
+// SweepExpired removes and returns the count of liveness sessions whose
+// retention_until is set and in the past relative to now.
+func (l *LivenessStore) SweepExpired(now time.Time) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	removed := 0
+	for appID, sessions := range l.sessions {
+		kept := sessions[:0]
+		for _, s := range sessions {
+			if !s.RetentionUntil.IsZero() && !s.RetentionUntil.After(now) {
+				removed++
+				continue
+			}
+			kept = append(kept, s)
+		}
+		l.sessions[appID] = kept
+	}
+	return removed
+}
+
 // newServices wires all in-memory services.
 func newServices() *Services {
 	audit := NewAuditLog()
-	repo := NewApplicationRepository(audit)
+	// EventSink for state transitions: a PolicyEventSink if
+	// POLICY_RISK_ENGINE_URL is set, otherwise the audit log itself (which
+	// already records transitions). The PolicyEventSink also fans out to the
+	// audit log via a composite sink.
+	var sink EventSink = audit
+	if os.Getenv("POLICY_RISK_ENGINE_URL") != "" {
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		policy := NewPolicyEventSink(logger)
+		sink = &compositeEventSink{primary: policy, secondary: audit}
+	}
+	repo := NewApplicationRepository(sink)
 	docs := NewDocumentStore()
 	liveness := NewLivenessStore()
 	screeningStore := NewScreeningStore()
@@ -289,7 +345,7 @@ func newMuxWithServices(s *Services) *http.ServeMux {
 // newServer wires middleware and returns an *http.Server.
 func newServer(s *Services, addr string) *http.Server {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	handler := correlationMiddleware(loggingMiddleware(logger, newMuxWithServices(s)))
+	handler := correlationMiddleware(spanMiddleware(loggingMiddleware(logger, newMuxWithServices(s))))
 	return &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -298,6 +354,12 @@ func newServer(s *Services, addr string) *http.Server {
 }
 
 func run(addr string) error {
+	ctx := context.Background()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if _, err := installTracer(ctx, logger); err != nil {
+		return fmt.Errorf("install tracer: %w", err)
+	}
+	defer shutdownTracer(context.Background())
 	srv := newServer(newServices(), addr)
 	return srv.ListenAndServe()
 }
@@ -562,14 +624,16 @@ func startLivenessHandler(s *Services) http.HandlerFunc {
 			writeError(w, r, NewAppError("vendor_error", "vendor liveness start failed: "+vErr.Error(), http.StatusBadGateway))
 			return
 		}
+		now := time.Now()
 		sess := LivenessSession{
 			ID:              newUUID(),
 			ApplicationID:   id,
 			VendorSessionID: vendorSessionID,
 			Status:          "passed",
-			StartedAt:       time.Now(),
-			CompletedAt:     time.Now(),
+			StartedAt:       now,
+			CompletedAt:     now,
 			Result:          "pass",
+			RetentionUntil:  now.Add(365 * 24 * time.Hour),
 		}
 		s.Liveness.Add(id, sess)
 		globalMetrics.livenessTotal.Add(1)

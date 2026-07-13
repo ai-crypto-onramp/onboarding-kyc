@@ -90,7 +90,7 @@ Abstract KYC vendor calls behind a single interface selected at runtime, with ti
 - [x] Define `VendorClient` interface: `CreateApplicant`, `UploadDocument`, `StartLiveness`, `GetReport`, `ParseWebhook`. _(see `vendor.go`.)_
 - [x] Implement `OnfidoClient` and `SumsubClient` REST adapters over `net/http`. _(StubVendorClient implemented; real adapters are a follow-up.)_
 - [x] Per-request timeouts (connect ≤ 2s, overall `VENDOR_CALL_TIMEOUT` ≤ 30s) via `http.Client` config. _(context cancellation honored; see `StartLiveness` 5s timeout.)_
-- [ ] Exponential backoff with jitter and max-attempts; retry 5xx, 408, 429; do not retry other 4xx. _(not yet; stub returns immediately.)_
+- [x] Exponential backoff with jitter and max-attempts; retry 5xx, 408, 429; do not retry other 4xx. _(retry helper in `retry.go`; `httpVendorClient` wraps outbound calls; `VENDOR_MAX_ATTEMPTS`/`VENDOR_RETRY_BASE_DELAY`/`VENDOR_RETRY_MAX_DELAY` env; tests in `retry_test.go`.)_
 - [x] Select implementation by `VENDOR_PROVIDER`; fail fast on unknown provider. _(see `NewVendorClient`.)_
 - [x] Graceful degradation: vendor outage queues applications in `review` rather than hard-failing the user. _(vendor errors surface as 502; review routing via screening threshold.)_
 - [x] Record every vendor call into the audit outbox with actor, latency, status. _(audit events emitted on create-applicant and upload.)_
@@ -128,7 +128,7 @@ Screen applicants against OFAC SDN, UN Consolidated, EU Financial Sanctions, and
 - [x] Run screening after `liveness_passed`, transition to `screening`. _(see `runScreeningHandler`.)_
 - [x] Persist `sanctions_hits` with list, matched_name, score, raw_payload; mark application `manual_review` when hits exceed threshold. _(see `ScreeningStore` + `SCREENING_HIT_THRESHOLD`.)_
 - [x] Allow analyst disposition (`reviewed_by`, `reviewed_at`, `disposition`) via an internal endpoint or job. _(see `screeningDispositionHandler`.)_
-- [ ] Scheduled list sync job (optional) writing local snapshots for offline matching. _(not yet.)_
+- [x] Scheduled list sync job (optional) writing local snapshots for offline matching. _(`ListSyncJob` in `list_sync.go`; gated by `LIST_SYNC_INTERVAL` (disabled by default); snapshots persisted to `LIST_SYNC_DIR`; tests in `list_sync_test.go`.)_
 - [x] Audit event per screening run and per hit disposition. _(see `s.Audit.Record` calls.)_
 - [x] Tests for clean, single-hit, and multi-hit scenarios with a mock provider. _(see `service_test.go` + `extra_test.go`.)_
 
@@ -165,7 +165,7 @@ Periodically and on risk triggers re-open expiring applications and enforce the 
 - [x] Scheduler (cron-like or tick loop) selecting applications where `re_kyc_due_at <= now` and transitioning terminal -> `started`. _(see `ReKYCService.Tick` + `Start`.)_
 - [x] Compute `re_kyc_due_at = decided_at + RE_KYC_INTERVAL_DAYS` on decision. _(365 days; see `repo.UpdateState` terminal branch.)_
 - [x] Risk-triggered re-KYC via an internal endpoint or event from the Policy/Risk Engine. _(see `POST /internal/v1/rekyc/trigger`.)_
-- [ ] Retention sweeper hard-deleting/redacting objects and rows past `retention_until`. _(not yet.)_
+- [x] Retention sweeper hard-deleting/redacting objects and rows past `retention_until`. _(`RetentionSweeper` in `retention.go`; `DocumentStore.SweepExpired`/`LivenessStore.SweepExpired` hard-delete and redact; migration `0002_retention` adds `liveness_sessions.retention_until`; `RETENTION_SWEEP_INTERVAL` env; tests in `retention_test.go`.)_
 - [x] Audit event on each re-KYC trigger and each retention deletion. _(see audit calls in `Tick` + `triggerReKYCHandler`.)_
 - [x] Tests with a fake clock to advance `re_kyc_due_at` and `retention_until`. _(see `extra_test.go`.)_
 
@@ -181,13 +181,13 @@ Emit lifecycle events to downstream consumers, complete observability, and packa
 
 ### Tasks
 - [x] Audit outbox publisher: append-only writer to the Audit Event Log with at-least-once delivery and dedup by event id. _(in-memory `AuditLog`; bus publisher is a follow-up.)_
-- [ ] Publish KYC decisions and state transitions to the Policy/Risk Engine (sync or async per contract). _(deferred; interface defined via `EventSink`.)_
-- [ ] OpenTelemetry tracing spans on HTTP handlers, vendor calls, DB transactions; exporter via `OTEL_EXPORTER_OTLP_ENDPOINT`. _(not yet.)_
+- [x] Publish KYC decisions and state transitions to the Policy/Risk Engine (sync or async per contract). _(`PolicyEventSink` in `policy_sink.go`; sync HTTP POST to `POLICY_RISK_ENGINE_URL` with bounded async fallback queue; `compositeEventSink` fans out to audit + policy; tests in `policy_sink_test.go`.)_
+- [x] OpenTelemetry tracing spans on HTTP handlers, vendor calls, DB transactions; exporter via `OTEL_EXPORTER_OTLP_ENDPOINT`. _(`tracing.go` installs a global tracer provider (no-op when endpoint unset); `spanMiddleware` wraps HTTP handlers; `httpVendorClient` spans vendor calls; `repo.UpdateState`/`Reopen` span DB transactions; tests in `tracing_test.go`.)_
 - [x] Prometheus metrics: request counts/latency, state occupancy, vendor call outcomes, screening hit rate, webhook dedup hits.
 - [x] Structured `slog` logging with `LOG_LEVEL`, no PII, correlation id propagation. _(see `loggingMiddleware` + `correlationMiddleware`.)_
 - [x] Lint (`go vet`, `golangci-lint`) and `go test -race -cover` passing; coverage gate per `codecov.yml`. _(go test -race wired; golangci-lint uses `go vet`.)_
 - [x] Dockerfile multi-stage build producing a minimal image; `docker-build`/`docker-run` Makefile targets verified.
-- [ ] README operations section (runbook pointers, config reference already exists).
+- [x] README operations section (runbook pointers, config reference already exists). _(Operations section added to `README.md` with logs/metrics/traces/health pointers, common operational tasks, and SLOs to watch.)_
 
 ### Acceptance criteria
 - Every state transition, vendor call, screening result, and manual override produces an audit event with actor, timestamp, reason.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -41,6 +42,7 @@ type LivenessSession struct {
 	StartedAt       time.Time `json:"started_at"`
 	CompletedAt     time.Time `json:"completed_at,omitempty"`
 	Result          string    `json:"result,omitempty"`
+	RetentionUntil  time.Time `json:"retention_until,omitempty"`
 }
 
 // SanctionsHit is a screening match persisted for analyst review.
@@ -179,6 +181,8 @@ func (r *ApplicationRepository) GetByUserID(userID string) (*Application, error)
 // UpdateState transitions the application to newState, guarded by the
 // transition table and optimistic concurrency via the version field.
 func (r *ApplicationRepository) UpdateState(id string, version int, newState State, actor, reason string) (*Application, error) {
+	_, span := startSpan(context.Background(), "repo.UpdateState")
+	defer span.End()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	app, ok := r.apps[id]
@@ -206,6 +210,8 @@ func (r *ApplicationRepository) UpdateState(id string, version int, newState Sta
 
 // Reopen moves a terminal application back to started for re-KYC.
 func (r *ApplicationRepository) Reopen(id string, version int, actor string) (*Application, error) {
+	_, span := startSpan(context.Background(), "repo.Reopen")
+	defer span.End()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	app, ok := r.apps[id]

@@ -35,6 +35,24 @@ func NewInMemoryScreeningClient() *InMemoryScreeningClient {
 	}
 }
 
+// Names returns a copy of the current in-memory sanctions/PEP list. Used by
+// the list sync job to snapshot the seed list for offline matching.
+func (c *InMemoryScreeningClient) Names() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]string, len(c.names))
+	copy(out, c.names)
+	return out
+}
+
+// SetNames replaces the in-memory sanctions/PEP list. Used by tests and by
+// operators loading a fresh snapshot.
+func (c *InMemoryScreeningClient) SetNames(names []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.names = append([]string(nil), names...)
+}
+
 // Screen returns hits whose listed name is a case-insensitive substring of
 // the applicant full name.
 func (c *InMemoryScreeningClient) Screen(ctx context.Context, fullName string) ([]ScreeningHit, error) {

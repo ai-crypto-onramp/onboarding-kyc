@@ -153,3 +153,37 @@ go test ./...
 go vet ./...
 golangci-lint run
 ```
+
+## Operations
+
+This section is a quick runbook pointer for operators running `onboarding-kyc`
+in production. The full configuration reference is in the
+[Configuration](#configuration) table above.
+
+### Where to look
+
+| Concern | Where |
+|---|---|
+| **Logs** | Structured JSON to stdout (`slog`); filter by `level`, `request_id` (correlation id from `X-Correlation-Id`). No PII is logged. Set `LOG_LEVEL=debug` for verbose output. |
+| **Metrics** | `GET /metrics` exposes Prometheus text format: `onboarding_kyc_requests_total`, `onboarding_kyc_request_latency_seconds_bucket`, `onboarding_kyc_state_transitions_total`, `onboarding_kyc_vendor_calls_total`, `onboarding_kyc_screening_*`, `onboarding_kyc_webhook_*`, `onboarding_kyc_rekyc_total`. Scrape with Prometheus. |
+| **Traces** | OpenTelemetry spans exported via OTLP HTTP to `OTEL_EXPORTER_OTLP_ENDPOINT`. When unset, a no-op provider is used (spans are recorded but not exported). Set `OTEL_EXPORTER_OTLP_INSECURE=1` for plaintext (e.g. local collectors). |
+| **Health** | `GET /healthz` (liveness) and `GET /readyz` (readiness). |
+| **Audit trail** | `GET /v1/audit-events` returns the in-memory audit log; in production, audit events are also written to the `audit_events` table. |
+| **Config** | All config is via env vars — see the [Configuration](#configuration) table. |
+
+### Common operational tasks
+
+- **Apply migrations:** `make migrate-up` (or `go run ./cmd/migrate --up`). Down with `make migrate-down`.
+- **Re-KYC a user now:** `POST /internal/v1/rekyc/trigger` with `{"user_id":"..."}`. Also runs automatically via `ReKYCService.Start` on the configured cadence.
+- **Retain / delete evidence past retention:** The retention sweeper (`RetentionSweeper`) hard-deletes documents and liveness sessions whose `retention_until` is in the past. Tune with `RETENTION_SWEEP_INTERVAL` (default `1h`) and `RETENTION_DAYS` (default `1095`, applied at upload time).
+- **Sync sanctions/PEP lists offline:** `ListSyncJob` periodically snapshots the screening provider's lists to `LIST_SYNC_DIR` (default `./var/lists`). Disabled by default; enable by setting `LIST_SYNC_INTERVAL` (e.g. `6h`).
+- **Inspect vendor retries:** Vendor HTTP calls use exponential backoff with full jitter, retrying 5xx/408/429 up to `VENDOR_MAX_ATTEMPTS` (default `5`). Other 4xx are not retried. Tune with `VENDOR_RETRY_BASE_DELAY` / `VENDOR_RETRY_MAX_DELAY`.
+- **Publish to Policy/Risk Engine:** Set `POLICY_RISK_ENGINE_URL` to enable sync HTTP publishing of state transitions and decisions. On failure, events fall back to a bounded async queue (`POLICY_EVENT_QUEUE_CAP`, default `1024`) with retry.
+- **Vendor outage:** Vendor errors surface as HTTP `502`; applications stay in their current state and may be routed to `manual_review` by screening thresholds. No user is hard-failed by a transient outage.
+
+### SLOs to watch
+
+- `GET /v1/kyc/status/:user_id` p95 ≤ 100ms (see `onboarding_kyc_request_latency_seconds_bucket`).
+- Application creation p95 ≤ 300ms excluding vendor latency.
+- Webhook acknowledgement ≤ 5s.
+- Target 99.9% monthly uptime.
