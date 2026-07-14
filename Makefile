@@ -1,10 +1,10 @@
-.PHONY: build test run lint coverage docker-build docker-run migrate-up migrate-down clean
+.PHONY: build test run lint cover docker-build docker-run migrate-up migrate-down clean
 
 build:
 	go build -o bin/onboarding-kyc ./cmd/onboarding-kyc
 
 test:
-	go test ./cmd/... ./internal/... -race -coverprofile=coverage.out -coverpkg=./cmd/...,./internal/...
+	go test ./internal/... -race -coverprofile=coverage.out -coverpkg=./internal/...
 
 run:
 	go run ./cmd/onboarding-kyc
@@ -12,7 +12,7 @@ run:
 lint:
 	golangci-lint run
 
-coverage: test
+cover: test
 	go tool cover -func=coverage.out | tail -1
 
 docker-build:

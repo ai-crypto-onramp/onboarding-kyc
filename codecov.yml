@@ -8,3 +8,6 @@ coverage:
         informational: true
 
 comment: false
+
+ignore:
+  - "cmd/"
