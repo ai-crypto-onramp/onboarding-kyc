@@ -8,30 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-      - uses: golangci/golangci-lint-action@v8
-        with:
-          version: latest
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-      - run: go mod download
-      - run: go build ./cmd/... ./internal/...
-      - run: go test ./cmd/... ./internal/... -race -coverprofile=coverage.out -coverpkg=./cmd/...,./internal/...
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.out
-          fail_ci_if_error: false
+  ci:
+    uses: ai-crypto-onramp/ai-crypto-onramp/workflows/go-service-ci.yml@main
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
