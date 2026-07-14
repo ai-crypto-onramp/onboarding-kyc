@@ -30,7 +30,6 @@ func NewAppError(code, msg string, status int) *AppError {
 
 var (
 	errAppNotFound     = NewAppError("application_not_found", "application not found", http.StatusNotFound)
-	errUserNotFound    = NewAppError("user_not_found", "user not found", http.StatusNotFound)
 	errBadJSON         = NewAppError("bad_json", "invalid JSON body", http.StatusBadRequest)
 	errMissingUserID   = NewAppError("missing_user_id", "user_id is required", http.StatusBadRequest)
 	errBadDocType      = NewAppError("bad_doc_type", "invalid document type", http.StatusBadRequest)
@@ -852,7 +851,6 @@ func decodeJSON(r *http.Request, dst any) error {
 type ReKYCService struct {
 	repo  ApplicationRepo
 	audit *AuditLog
-	mu    sync.Mutex
 	stop  chan struct{}
 }
 

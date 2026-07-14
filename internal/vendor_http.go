@@ -103,12 +103,3 @@ func closeBody(resp *http.Response) {
 		_ = resp.Body.Close()
 	}
 }
-
-// readBody reads and closes the response body, returning its bytes.
-func readBody(resp *http.Response) ([]byte, error) {
-	if resp == nil || resp.Body == nil {
-		return nil, nil
-	}
-	defer closeBody(resp)
-	return io.ReadAll(resp.Body)
-}

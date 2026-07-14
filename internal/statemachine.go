@@ -3,7 +3,6 @@ package internal
 import (
 	"errors"
 	"fmt"
-	"time"
 )
 
 // State is the lifecycle state of a KYC application.
@@ -77,14 +76,4 @@ func ReKYC(from State) (State, error) {
 		return "", fmt.Errorf("%w: current state %s", ErrReKYCNotTerminal, from)
 	}
 	return StateStarted, nil
-}
-
-// transitionEvent is an in-memory domain event emitted on each state
-// transition, consumed by the audit log.
-type transitionEvent struct {
-	ApplicationID string
-	From         State
-	To           State
-	Reason       string
-	OccurredAt   time.Time
 }

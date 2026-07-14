@@ -45,7 +45,6 @@ var (
 	errStaleTs      = errors.New("stale webhook timestamp")
 	errMissingTs    = errors.New("missing webhook timestamp")
 	errMissingSig   = errors.New("missing webhook signature")
-	errMissingID    = errors.New("missing webhook id")
 )
 
 // VerifyWebhook verifies the HMAC-SHA256 signature over the raw body and the
