@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"io"
@@ -74,13 +74,13 @@ func TestRunReturnsErrorWhenAddrInUse(t *testing.T) {
 	}
 	defer ln.Close()
 
-	if err := run(ln.Addr().String()); err == nil {
+	if err := Run(ln.Addr().String()); err == nil {
 		t.Fatal("expected error when address is already in use, got nil")
 	}
 }
 
 func TestRunReturnsErrorOnInvalidAddr(t *testing.T) {
-	if err := run("not-a-valid-addr:xyz"); err == nil {
+	if err := Run("not-a-valid-addr:xyz"); err == nil {
 		t.Fatal("expected error for invalid address, got nil")
 	}
 }

@@ -1,16 +1,16 @@
 .PHONY: build test run lint docker-build docker-run migrate-up migrate-down clean
 
 build:
-	go build -o bin/server .
+	go build -o bin/server ./cmd/onboarding-kyc
 
 test:
-	go test ./... -race -coverprofile=coverage.out -coverpkg=./...
+	go test ./cmd/... ./internal/... -race -coverprofile=coverage.out -coverpkg=./cmd/...,./internal/...
 
 run:
-	go run .
+	go run ./cmd/onboarding-kyc
 
 lint:
-	go vet ./...
+	go vet ./cmd/... ./internal/...
 
 docker-build:
 	docker build -t ai-crypto-onramp/onboarding-kyc .

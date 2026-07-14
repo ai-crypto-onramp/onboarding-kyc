@@ -1,4 +1,4 @@
-package main
+package internal
 
 import (
 	"context"
@@ -372,7 +372,7 @@ func newServer(s *Services, addr string) *http.Server {
 	}
 }
 
-func run(addr string) error {
+func Run(addr string) error {
 	ctx := context.Background()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	if _, err := installTracer(ctx, logger); err != nil {
