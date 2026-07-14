@@ -10,7 +10,7 @@ run:
 	go run ./cmd/onboarding-kyc
 
 lint:
-	go vet ./cmd/... ./internal/...
+	golangci-lint run
 
 docker-build:
 	docker build -t ai-crypto-onramp/onboarding-kyc .

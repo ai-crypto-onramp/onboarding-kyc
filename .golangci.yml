@@ -1,0 +1,23 @@
+version: "2"
+
+linters:
+  # Defaults already include govet, staticcheck, errcheck, ineffassign, unused.
+  enable:
+    - gosec
+    - gocyclo
+    - misspell
+  settings:
+    gocyclo:
+      min-complexity: 20
+  exclusions:
+    rules:
+      # Tests routinely ignore errors on teardown and grow long table cases.
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - gocyclo
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
