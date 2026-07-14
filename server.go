@@ -152,14 +152,14 @@ func (s *statusRecorder) WriteHeader(code int) {
 
 // Services bundles all dependencies used by the HTTP handlers.
 type Services struct {
-	Repo    *ApplicationRepository
-	Docs    *DocumentStore
-	Liveness *LivenessStore
-	Screen  *ScreeningService
-	Webhook *WebhookService
-	Audit   *AuditLog
-	Vendor  VendorClient
-	ReKYC   *ReKYCService
+	Repo     ApplicationRepo
+	Docs     DocumentRepo
+	Liveness LivenessRepo
+	Screen   *ScreeningService
+	Webhook  *WebhookService
+	Audit    *AuditLog
+	Vendor   VendorClient
+	ReKYC    *ReKYCService
 }
 
 // DocumentStore holds uploaded documents and liveness sessions in memory.
@@ -279,7 +279,9 @@ func (l *LivenessStore) SweepExpired(now time.Time) int {
 	return removed
 }
 
-// newServices wires all in-memory services.
+// newServices wires services. If DB_URL is set it opens a pgxpool, runs
+// migrations, and uses DB-backed stores; otherwise it falls back to the
+// in-memory stores.
 func newServices() *Services {
 	audit := NewAuditLog()
 	// EventSink for state transitions: a PolicyEventSink if
@@ -292,9 +294,26 @@ func newServices() *Services {
 		policy := NewPolicyEventSink(logger)
 		sink = &compositeEventSink{primary: policy, secondary: audit}
 	}
-	repo := NewApplicationRepository(sink)
-	docs := NewDocumentStore()
-	liveness := NewLivenessStore()
+
+	var (
+		repo     ApplicationRepo
+		docs     DocumentRepo
+		liveness LivenessRepo
+	)
+	if dsn := os.Getenv("DB_URL"); dsn != "" {
+		pool, err := openPoolAndMigrate(context.Background(), dsn)
+		if err != nil {
+			panic(err)
+		}
+		repo = NewDBApplicationRepo(pool, sink)
+		docs = NewDBDocumentRepo(pool)
+		liveness = NewDBLivenessRepo(pool)
+	} else {
+		repo = NewApplicationRepository(sink)
+		docs = NewDocumentStore()
+		liveness = NewLivenessStore()
+	}
+
 	screeningStore := NewScreeningStore()
 	screeningClient := NewInMemoryScreeningClient()
 	screening := NewScreeningService(screeningClient, repo, screeningStore, audit)
@@ -305,14 +324,14 @@ func newServices() *Services {
 	webhook := NewWebhookService(NewWebhookStore(), repo, audit, vendor)
 	rekyc := NewReKYCService(repo, audit)
 	return &Services{
-		Repo:    repo,
-		Docs:    docs,
+		Repo:     repo,
+		Docs:     docs,
 		Liveness: liveness,
-		Screen:  screening,
-		Webhook: webhook,
-		Audit:   audit,
-		Vendor:  vendor,
-		ReKYC:   rekyc,
+		Screen:   screening,
+		Webhook:  webhook,
+		Audit:    audit,
+		Vendor:   vendor,
+		ReKYC:    rekyc,
 	}
 }
 
@@ -829,29 +848,16 @@ func decodeJSON(r *http.Request, dst any) error {
 	return nil
 }
 
-// SetVendorApplicantID is a helper used during create to set the vendor id.
-// Defined on ApplicationRepository via a separate file to avoid bloating
-// repo.go.
-func (r *ApplicationRepository) SetVendorApplicantID(id, vendorID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if app, ok := r.apps[id]; ok {
-		app.VendorApplicantID = vendorID
-		app.Version++
-		app.UpdatedAt = r.now()
-	}
-}
-
 // ReKYCService runs the scheduler tick and manual triggers.
 type ReKYCService struct {
-	repo  *ApplicationRepository
+	repo  ApplicationRepo
 	audit *AuditLog
 	mu    sync.Mutex
 	stop  chan struct{}
 }
 
 // NewReKYCService creates a new ReKYCService.
-func NewReKYCService(repo *ApplicationRepository, audit *AuditLog) *ReKYCService {
+func NewReKYCService(repo ApplicationRepo, audit *AuditLog) *ReKYCService {
 	return &ReKYCService{repo: repo, audit: audit, stop: make(chan struct{})}
 }
 

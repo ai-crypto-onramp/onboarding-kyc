@@ -122,7 +122,7 @@ func abs(x int64) int64 {
 // reconciliation to the state machine.
 type WebhookService struct {
 	store    *WebhookStore
-	repo     *ApplicationRepository
+	repo     ApplicationRepo
 	audit    *AuditLog
 	vendor   VendorClient
 	secret   string
@@ -131,7 +131,7 @@ type WebhookService struct {
 }
 
 // NewWebhookService creates a new WebhookService.
-func NewWebhookService(store *WebhookStore, repo *ApplicationRepository, audit *AuditLog, vendor VendorClient) *WebhookService {
+func NewWebhookService(store *WebhookStore, repo ApplicationRepo, audit *AuditLog, vendor VendorClient) *WebhookService {
 	secret := os.Getenv("WEBHOOK_SECRET")
 	if secret == "" {
 		secret = "dev-webhook-secret"

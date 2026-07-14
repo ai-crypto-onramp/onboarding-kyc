@@ -91,14 +91,14 @@ func ScreeningThreshold() int {
 // store.
 type ScreeningService struct {
 	screener ScreeningClient
-	repo     *ApplicationRepository
+	repo     ApplicationRepo
 	store    *ScreeningStore
 	audit    *AuditLog
 	now      func() time.Time
 }
 
 // NewScreeningService wires the screening service.
-func NewScreeningService(screener ScreeningClient, repo *ApplicationRepository, store *ScreeningStore, audit *AuditLog) *ScreeningService {
+func NewScreeningService(screener ScreeningClient, repo ApplicationRepo, store *ScreeningStore, audit *AuditLog) *ScreeningService {
 	return &ScreeningService{
 		screener: screener,
 		repo:     repo,

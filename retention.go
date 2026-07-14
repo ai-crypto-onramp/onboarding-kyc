@@ -10,12 +10,12 @@ import (
 
 // RetentionSweeper periodically hard-deletes (and redacts) documents and
 // liveness sessions whose retention_until timestamp is in the past. It
-// operates on the in-memory DocumentStore and LivenessStore; in a production
-// deployment the same loop would issue DELETE queries against the DB and
-// expire objects in object storage.
+// operates on the DocumentRepo and LivenessRepo; in a production deployment
+// the same loop would issue DELETE queries against the DB and expire objects
+// in object storage.
 type RetentionSweeper struct {
-	docs     *DocumentStore
-	liveness *LivenessStore
+	docs     DocumentRepo
+	liveness LivenessRepo
 	audit    *AuditLog
 	logger   *slog.Logger
 	now      func() time.Time
@@ -25,7 +25,7 @@ type RetentionSweeper struct {
 }
 
 // NewRetentionSweeper builds a sweeper over the given stores.
-func NewRetentionSweeper(docs *DocumentStore, liveness *LivenessStore, audit *AuditLog, logger *slog.Logger) *RetentionSweeper {
+func NewRetentionSweeper(docs DocumentRepo, liveness LivenessRepo, audit *AuditLog, logger *slog.Logger) *RetentionSweeper {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	}

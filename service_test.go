@@ -110,7 +110,7 @@ func uploadDoc(t *testing.T, srv *httptest.Server, appID, docType string) {
 	resp.Body.Close()
 }
 
-func setState(repo *ApplicationRepository, id string, to State) {
+func setState(repo ApplicationRepo, id string, to State) {
 	app, _ := repo.Get(id)
 	_, _ = repo.UpdateState(id, app.Version, to, "test", "test")
 }

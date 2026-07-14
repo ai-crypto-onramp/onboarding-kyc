@@ -235,24 +235,26 @@ func (r *ApplicationRepository) Reopen(id string, version int, actor string) (*A
 	return &cp, nil
 }
 
-// ListDueForReKYC returns ids+versions of applications whose re_kyc_due_at
-// is set and in the past.
-func (r *ApplicationRepository) ListDueForReKYC(now time.Time) []struct {
-	ID      string
-	Version int
-} {
+// SetVendorApplicantID stores the vendor applicant id and bumps the version.
+func (r *ApplicationRepository) SetVendorApplicantID(id, vendorID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var out []struct {
-		ID      string
-		Version int
+	if app, ok := r.apps[id]; ok {
+		app.VendorApplicantID = vendorID
+		app.Version++
+		app.UpdatedAt = r.now()
 	}
+}
+
+// ListDueForReKYC returns ids+versions of applications whose re_kyc_due_at
+// is set and in the past.
+func (r *ApplicationRepository) ListDueForReKYC(now time.Time) []ReKYCDue {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []ReKYCDue
 	for _, app := range r.apps {
 		if !app.ReKYCDueAt.IsZero() && !app.ReKYCDueAt.After(now) && IsTerminal(app.State) {
-			out = append(out, struct {
-				ID      string
-				Version int
-			}{app.ID, app.Version})
+			out = append(out, ReKYCDue{ID: app.ID, Version: app.Version})
 		}
 	}
 	return out
