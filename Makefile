@@ -1,4 +1,4 @@
-.PHONY: build test run lint docker-build docker-run migrate-up migrate-down clean
+.PHONY: build test run lint cover docker-build docker-run migrate-up migrate-down clean
 
 build:
 	go build -o bin/server ./cmd/onboarding-kyc
@@ -11,6 +11,9 @@ run:
 
 lint:
 	golangci-lint run
+
+cover: test
+	go tool cover -func=coverage.out | tail -1
 
 docker-build:
 	docker build -t ai-crypto-onramp/onboarding-kyc .
