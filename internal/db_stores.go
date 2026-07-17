@@ -225,7 +225,7 @@ func (r *DBApplicationRepo) ListDueForReKYC(now time.Time) []ReKYCDue {
 	ctx := context.Background()
 	rows, err := r.pool.Query(ctx, `
 SELECT id, version FROM kyc_applications
-WHERE re_kyc_due_at IS NOT NULL AND re_kyc_due_at <= $1 AND state IN ('pass','fail')`, now)
+WHERE re_kyc_due_at IS NOT NULL AND re_kyc_due_at <= $1 AND state IN ('PASS','FAIL')`, now)
 	if err != nil {
 		return nil
 	}
@@ -303,7 +303,7 @@ FROM documents WHERE application_id=$1 ORDER BY uploaded_at`, appID)
 // HasRequiredDocs returns true if at least id_front + selfie are present.
 func (d *DBDocumentRepo) HasRequiredDocs(appID string) bool {
 	ctx := context.Background()
-	for _, t := range []string{"id_front", "selfie"} {
+	for _, t := range []string{"ID_FRONT", "SELFIE"} {
 		var exists bool
 		err := d.pool.QueryRow(ctx,
 			"SELECT EXISTS(SELECT 1 FROM documents WHERE application_id=$1 AND type=$2)", appID, t).Scan(&exists)

@@ -5,7 +5,7 @@
 BEGIN;
 
 ALTER TABLE liveness_sessions
-    ADD COLUMN IF NOT EXISTS retention_until timestamptz;
+    ADD COLUMN IF NOT EXISTS retention_until TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_liveness_retention
     ON liveness_sessions(retention_until)

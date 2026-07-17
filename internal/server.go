@@ -195,9 +195,9 @@ func (d *DocumentStore) HasRequiredDocs(appID string) bool {
 	var hasID, hasSelfie bool
 	for _, doc := range d.docs[appID] {
 		switch doc.Type {
-		case "id_front":
+		case "ID_FRONT":
 			hasID = true
-		case "selfie":
+		case "SELFIE":
 			hasSelfie = true
 		}
 	}
@@ -525,10 +525,10 @@ func getStatusHandler(s *Services) http.HandlerFunc {
 }
 
 var validDocTypes = map[string]bool{
-	"id_front": true,
-	"id_back":  true,
-	"selfie":   true,
-	"poa":      true,
+	"ID_FRONT": true,
+	"ID_BACK":  true,
+	"SELFIE":   true,
+	"POA":      true,
 }
 
 type uploadDocJSONRequest struct {
@@ -647,10 +647,10 @@ func startLivenessHandler(s *Services) http.HandlerFunc {
 			ID:              newUUID(),
 			ApplicationID:   id,
 			VendorSessionID: vendorSessionID,
-			Status:          "passed",
+			Status:          "PASSED",
 			StartedAt:       now,
 			CompletedAt:     now,
-			Result:          "pass",
+			Result:          "PASS",
 			RetentionUntil:  now.Add(365 * 24 * time.Hour),
 		}
 		s.Liveness.Add(id, sess)
@@ -659,7 +659,7 @@ func startLivenessHandler(s *Services) http.HandlerFunc {
 			"vendor_session_id": vendorSessionID,
 		})
 		// On pass, transition documents_uploaded -> liveness_passed.
-		if sess.Result == "pass" {
+		if sess.Result == "PASS" {
 			to := StateLivenessPassed
 			if app.State != StateDocumentsUploaded {
 				// also allow from started directly for stub convenience

@@ -209,20 +209,20 @@ func (w *WebhookService) Ingest(ctx context.Context, vendor string, raw []byte, 
 // reconcileOutcomeToState maps a vendor webhook outcome to the target state.
 func reconcileOutcomeToState(outcome string, current State) State {
 	switch outcome {
-	case "clear", "pass", "approved":
+	case "CLEAR", "PASS", "APPROVED":
 		if CanTransition(current, StatePass) {
 			return StatePass
 		}
 		if CanTransition(current, StateVendorDecision) {
 			return StateVendorDecision
 		}
-	case "fail", "rejected":
+	case "FAIL", "REJECTED":
 		if CanTransition(current, StateFail) {
 			return StateFail
 		}
-	case "consider", "review", "manual_review":
+	case "CONSIDER", "REVIEW", "MANUAL_REVIEW":
 		return StateManualReview
-	case "liveness_pass":
+	case "LIVENESS_PASS":
 		if CanTransition(current, StateLivenessPassed) {
 			return StateLivenessPassed
 		}

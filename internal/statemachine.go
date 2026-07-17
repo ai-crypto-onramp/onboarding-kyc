@@ -9,14 +9,14 @@ import (
 type State string
 
 const (
-	StateStarted          State = "started"
-	StateDocumentsUploaded State = "documents_uploaded"
-	StateLivenessPassed   State = "liveness_passed"
-	StateScreening        State = "screening"
-	StateVendorDecision   State = "vendor_decision"
-	StatePass             State = "pass"
-	StateFail             State = "fail"
-	StateManualReview     State = "manual_review"
+	StateStarted           State = "STARTED"
+	StateDocumentsUploaded State = "DOCUMENTS_UPLOADED"
+	StateLivenessPassed    State = "LIVENESS_PASSED"
+	StateScreening         State = "SCREENING"
+	StateVendorDecision    State = "VENDOR_DECISION"
+	StatePass              State = "PASS"
+	StateFail              State = "FAIL"
+	StateManualReview      State = "MANUAL_REVIEW"
 )
 
 // TerminalStates are states from which the only legal forward motion is

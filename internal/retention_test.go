@@ -14,7 +14,7 @@ func TestDocumentStoreSweepExpired(t *testing.T) {
 	d.Add("a1", Document{
 		ID:             "d1",
 		ApplicationID:  "a1",
-		Type:           "id_front",
+		Type:           "ID_FRONT",
 		Content:        []byte("secret"),
 		UploadedAt:     now.Add(-400 * 24 * time.Hour),
 		RetentionUntil: now.Add(-1 * time.Hour), // expired
@@ -22,7 +22,7 @@ func TestDocumentStoreSweepExpired(t *testing.T) {
 	d.Add("a1", Document{
 		ID:             "d2",
 		ApplicationID:  "a1",
-		Type:           "selfie",
+		Type:           "SELFIE",
 		Content:        []byte("keep"),
 		UploadedAt:     now,
 		RetentionUntil: now.Add(365 * 24 * time.Hour), // not expired
@@ -76,7 +76,7 @@ func TestRetentionSweeperSweep(t *testing.T) {
 	d.Add("a1", Document{
 		ID:             "d1",
 		ApplicationID:  "a1",
-		Type:           "id_front",
+		Type:           "ID_FRONT",
 		Content:        []byte("x"),
 		RetentionUntil: now.Add(-time.Hour),
 	})

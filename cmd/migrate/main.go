@@ -65,7 +65,7 @@ func main() {
 		for _, m := range migs {
 			var applied bool
 			_ = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)", m.Version).Scan(&applied)
-			state := "pending"
+			state := "STARTED"
 			if applied {
 				state = "applied"
 			}

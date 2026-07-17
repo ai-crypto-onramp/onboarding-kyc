@@ -86,8 +86,8 @@ func TestPolicyEventSinkPublishDecision(t *testing.T) {
 		if evt.Type != "decision" {
 			t.Errorf("expected decision, got %s", evt.Type)
 		}
-		if evt.Outcome != "pass" {
-			t.Errorf("expected pass, got %s", evt.Outcome)
+		if evt.Outcome != "PASS" {
+			t.Errorf("expected PASS, got %s", evt.Outcome)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -95,7 +95,7 @@ func TestPolicyEventSinkPublishDecision(t *testing.T) {
 	t.Setenv("POLICY_RISK_ENGINE_URL", srv.URL)
 	sink := NewPolicyEventSink(slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	defer sink.Stop()
-	sink.PublishDecision(context.Background(), "app4", "pass", "clear", "analyst")
+	sink.PublishDecision(context.Background(), "app4", "PASS", "clear", "analyst")
 	if seen.Load() != 1 {
 		t.Fatalf("expected 1, got %d", seen.Load())
 	}

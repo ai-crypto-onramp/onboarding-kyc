@@ -26,7 +26,7 @@ type VendorApplicant struct {
 // VendorReport is the parsed vendor report.
 type VendorReport struct {
 	ApplicationID   string
-	Outcome         string // "clear" | "consider" | "fail"
+	Outcome         string // "CLEAR" | "CONSIDER" | "FAIL"
 	LivenessPassed  bool
 	SanctionsHits   int
 	Reason          string
@@ -102,10 +102,10 @@ func (s *StubVendorClient) GetReport(ctx context.Context, vendorApplicantID stri
 	}
 	return VendorReport{
 		ApplicationID:  vendorApplicantID,
-		Outcome:        "clear",
+		Outcome:        "CLEAR",
 		LivenessPassed: true,
 		SanctionsHits:  0,
-		Reason:         "stub: clear",
+		Reason:         "stub: CLEAR",
 	}, nil
 }
 
@@ -115,7 +115,7 @@ func (s *StubVendorClient) ParseWebhook(ctx context.Context, vendor string, raw 
 	}
 	evt := VendorWebhookEvent{
 		Vendor:         vendor,
-		Outcome:        "clear",
+		Outcome:        "CLEAR",
 		LivenessPassed: true,
 	}
 	// Best-effort extraction of application_id and outcome from JSON body.

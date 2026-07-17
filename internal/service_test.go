@@ -486,8 +486,8 @@ func TestDocumentUploadSuccess(t *testing.T) {
 	srv := newTestServer(s)
 	defer srv.Close()
 	id := createApp(t, srv, "u-doc")
-	uploadDoc(t, srv, id, "id_front")
-	uploadDoc(t, srv, id, "selfie")
+	uploadDoc(t, srv, id, "ID_FRONT")
+	uploadDoc(t, srv, id, "SELFIE")
 	resp := doJSON(t, srv.Client(), http.MethodGet, srv.URL+"/v1/kyc/applications/"+id+"/documents", nil)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -520,13 +520,13 @@ func TestDocumentUploadTransitionsToDocumentsUploaded(t *testing.T) {
 	srv := newTestServer(s)
 	defer srv.Close()
 	id := createApp(t, srv, "u-doc-trans")
-	uploadDoc(t, srv, id, "id_front")
+	uploadDoc(t, srv, id, "ID_FRONT")
 	// not yet
 	app, _ := s.Repo.Get(id)
 	if app.State != StateStarted {
 		t.Fatalf("expected started, got %s", app.State)
 	}
-	uploadDoc(t, srv, id, "selfie")
+	uploadDoc(t, srv, id, "SELFIE")
 	app, _ = s.Repo.Get(id)
 	if app.State != StateDocumentsUploaded {
 		t.Fatalf("expected documents_uploaded, got %s", app.State)
@@ -540,7 +540,7 @@ func TestDocumentRetention365Days(t *testing.T) {
 	id := createApp(t, srv, "u-doc-ret")
 	resp := doJSON(t, srv.Client(), http.MethodPost,
 		srv.URL+"/v1/kyc/applications/"+id+"/documents",
-		map[string]string{"type": "selfie", "content": "x"})
+		map[string]string{"type": "SELFIE", "content": "x"})
 	decodeBody(t, resp, &Document{})
 	var doc Document
 	// re-decode via documents list
@@ -566,8 +566,8 @@ func TestLivenessSuccessTransitions(t *testing.T) {
 	srv := newTestServer(s)
 	defer srv.Close()
 	id := createApp(t, srv, "u-live")
-	uploadDoc(t, srv, id, "id_front")
-	uploadDoc(t, srv, id, "selfie")
+	uploadDoc(t, srv, id, "ID_FRONT")
+	uploadDoc(t, srv, id, "SELFIE")
 	resp := doJSON(t, srv.Client(), http.MethodPost, srv.URL+"/v1/kyc/applications/"+id+"/liveness", nil)
 	if resp.StatusCode != http.StatusCreated {
 		b, _ := io.ReadAll(resp.Body)
@@ -576,7 +576,7 @@ func TestLivenessSuccessTransitions(t *testing.T) {
 	}
 	var sess LivenessSession
 	decodeBody(t, resp, &sess)
-	if sess.Status != "passed" {
+	if sess.Status != "PASSED" {
 		t.Fatalf("expected passed, got %s", sess.Status)
 	}
 	app, _ := s.Repo.Get(id)
@@ -675,7 +675,7 @@ func TestScreeningDispositionPass(t *testing.T) {
 		t.Fatalf("expected manual_review, got %s", app.State)
 	}
 	resp := doJSON(t, srv.Client(), http.MethodPost, srv.URL+"/v1/kyc/applications/"+id+"/screening/disposition", map[string]string{
-		"disposition": "clear",
+		"disposition": "CLEAR",
 		"reviewed_by": "analyst1",
 	})
 	if resp.StatusCode != http.StatusOK {
@@ -699,7 +699,7 @@ func TestScreeningDispositionFail(t *testing.T) {
 		"full_name": "EVIL DOER",
 	}).Body.Read(make([]byte, 0))
 	resp := doJSON(t, srv.Client(), http.MethodPost, srv.URL+"/v1/kyc/applications/"+id+"/screening/disposition", map[string]string{
-		"disposition": "block",
+		"disposition": "BLOCK",
 		"reviewed_by": "analyst1",
 	})
 	if resp.StatusCode != http.StatusOK {
@@ -1015,7 +1015,7 @@ func TestStubVendorClient(t *testing.T) {
 	if err != nil || id == "" {
 		t.Fatalf("create applicant: %v %s", err, id)
 	}
-	docID, err := c.UploadDocument(ctx, id, VendorDocument{Type: "id_front", Content: []byte("x")})
+	docID, err := c.UploadDocument(ctx, id, VendorDocument{Type: "ID_FRONT", Content: []byte("x")})
 	if err != nil || docID == "" {
 		t.Fatalf("upload doc: %v %s", err, docID)
 	}
@@ -1076,9 +1076,9 @@ func TestScreeningStoreAddListDisposition(t *testing.T) {
 	if len(st.List("a1")) != 2 {
 		t.Fatal("expected 2 hits")
 	}
-	st.SetDisposition("a1", "analyst", "block")
+	st.SetDisposition("a1", "analyst", "BLOCK")
 	for _, h := range st.List("a1") {
-		if h.Disposition != "block" || h.ReviewedBy != "analyst" {
+		if h.Disposition != "BLOCK" || h.ReviewedBy != "analyst" {
 			t.Fatalf("expected disposition set, got %+v", h)
 		}
 	}
@@ -1134,7 +1134,7 @@ func TestDocumentUploadMultipart(t *testing.T) {
 	body := &bytes.Buffer{}
 	body.WriteString("--boundary\r\n")
 	body.WriteString(`Content-Disposition: form-data; name="type"` + "\r\n\r\n")
-	body.WriteString("id_front\r\n")
+	body.WriteString("ID_FRONT\r\n")
 	body.WriteString("--boundary\r\n")
 	body.WriteString(`Content-Disposition: form-data; name="content"` + "\r\n\r\n")
 	body.WriteString("raw-bytes\r\n")
@@ -1151,9 +1151,9 @@ func TestDocumentUploadMultipart(t *testing.T) {
 		t.Fatalf("expected 201, got %d body %s", resp.StatusCode, b)
 	}
 	resp.Body.Close()
-	// Only id_front uploaded via multipart; required set (id_front+selfie) not satisfied.
+	// Only ID_FRONT uploaded via multipart; required set (ID_FRONT+SELFIE) not satisfied.
 	if s.Docs.HasRequiredDocs(id) {
-		t.Fatal("expected required docs NOT satisfied with only id_front")
+		t.Fatal("expected required docs NOT satisfied with only ID_FRONT")
 	}
 }
 
@@ -1165,7 +1165,7 @@ func TestScreeningDispositionNotInReview(t *testing.T) {
 	if err := s.Repo.Create(app); err != nil {
 		t.Fatal(err)
 	}
-	err := s.Screen.Disposition(context.Background(), "a1", "clear", "analyst")
+	err := s.Screen.Disposition(context.Background(), "a1", "CLEAR", "analyst")
 	if err == nil {
 		t.Fatal("expected error: not in review")
 	}

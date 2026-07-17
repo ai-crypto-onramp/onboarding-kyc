@@ -141,7 +141,7 @@ func (s *ScreeningService) Run(ctx context.Context, app *Application, fullName s
 // Disposition records an analyst disposition on the application's screening
 // and transitions the application from manual_review to pass/fail.
 func (s *ScreeningService) Disposition(ctx context.Context, appID, disposition, reviewedBy string) error {
-	if disposition != "clear" && disposition != "block" {
+	if disposition != "CLEAR" && disposition != "BLOCK" {
 		return errBadDisposition
 	}
 	app, err := s.repo.Get(appID)
@@ -153,7 +153,7 @@ func (s *ScreeningService) Disposition(ctx context.Context, appID, disposition, 
 	}
 	s.store.SetDisposition(appID, reviewedBy, disposition)
 	var to State
-	if disposition == "clear" {
+	if disposition == "CLEAR" {
 		to = StatePass
 	} else {
 		to = StateFail

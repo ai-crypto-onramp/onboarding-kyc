@@ -1,22 +1,16 @@
 package internal
 
 import (
-	"crypto/rand"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
-// newUUID returns a v4 UUID string using crypto/rand.
+// newUUID returns a v7 UUID string (time-ordered) using google/uuid.
 func newUUID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// extremely unlikely; fall back to time-based
-		return fmt.Sprintf("%016x", time.Now().UnixNano())
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	id, _ := uuid.NewV7()
+	return id.String()
 }
 
 // AuditEvent is an append-only audit log entry.

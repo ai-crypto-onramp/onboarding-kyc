@@ -171,7 +171,7 @@ func TestWebhookReconcileAdvancesState(t *testing.T) {
 		t.Fatalf("expected accepted, got %s", res.Reason)
 	}
 	app2, _ := s.Repo.Get("a1")
-	// stub ParseWebhook returns outcome=clear; from vendor_decision -> pass legal
+	// stub ParseWebhook returns outcome=CLEAR; from vendor_decision -> pass legal
 	if app2.State != StatePass {
 		t.Fatalf("expected pass after webhook reconcile, got %s", app2.State)
 	}
@@ -309,7 +309,7 @@ func TestParseDocRequestMultipartWithFile(t *testing.T) {
 	body := &bytes.Buffer{}
 	body.WriteString("--b\r\n")
 	body.WriteString(`Content-Disposition: form-data; name="type"` + "\r\n\r\n")
-	body.WriteString("selfie\r\n")
+	body.WriteString("SELFIE\r\n")
 	body.WriteString("--b\r\n")
 	body.WriteString(`Content-Disposition: form-data; name="file"; filename="f.jpg"` + "\r\n")
 	body.WriteString("Content-Type: image/jpeg\r\n\r\n")
@@ -321,7 +321,7 @@ func TestParseDocRequestMultipartWithFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseDocRequest: %v", err)
 	}
-	if docType != "selfie" || string(content) != "img-bytes" {
+	if docType != "SELFIE" || string(content) != "img-bytes" {
 		t.Fatalf("got type=%q content=%q", docType, content)
 	}
 }
@@ -341,7 +341,7 @@ func TestUploadDocumentNotFound(t *testing.T) {
 	s := newTestServices()
 	srv := newTestServer(s)
 	defer srv.Close()
-	resp := doJSON(t, srv.Client(), http.MethodPost, srv.URL+"/v1/kyc/applications/none/documents", map[string]string{"type": "selfie"})
+	resp := doJSON(t, srv.Client(), http.MethodPost, srv.URL+"/v1/kyc/applications/none/documents", map[string]string{"type": "SELFIE"})
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
 	}
