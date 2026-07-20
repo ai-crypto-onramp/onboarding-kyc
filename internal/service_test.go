@@ -12,11 +12,17 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("DEV_MODE", "1")
+	os.Exit(m.Run())
+}
 
 // ---- helpers ----
 
