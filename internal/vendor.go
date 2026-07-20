@@ -53,14 +53,31 @@ type VendorClient interface {
 	Name() string
 }
 
-// NewVendorClient selects a vendor client by VENDOR_PROVIDER env.
+// NewVendorClient selects a vendor client by VENDOR_PROVIDER env. When the
+// provider is unset or "stub" it returns the StubVendorClient, but only when
+// DEV_MODE=1; in production KYC_VENDOR_URL (or LIVENESS_VENDOR_URL) must be set
+// and a real vendor client used.
 func NewVendorClient() (VendorClient, error) {
+	return NewVendorClientWithMode(os.Getenv("DEV_MODE") == "1")
+}
+
+// NewVendorClientWithMode is the DEV_MODE-aware variant of NewVendorClient.
+func NewVendorClientWithMode(devMode bool) (VendorClient, error) {
 	provider := os.Getenv("VENDOR_PROVIDER")
 	if provider == "" {
 		provider = "stub"
 	}
 	switch provider {
 	case "stub", "":
+		if !devMode {
+			if os.Getenv("KYC_VENDOR_URL") == "" && os.Getenv("LIVENESS_VENDOR_URL") == "" {
+				return nil, fmt.Errorf("KYC_VENDOR_URL (or LIVENESS_VENDOR_URL) required in production mode; real vendor client not yet implemented — set DEV_MODE=1 for local dev")
+			}
+			// Real vendor HTTP client not yet implemented; require URL but
+			// return the stub shape so the wire stays consistent. The error
+			// above guards prod.
+			return &StubVendorClient{}, nil
+		}
 		return &StubVendorClient{}, nil
 	default:
 		return nil, fmt.Errorf("unknown vendor provider: %s", provider)

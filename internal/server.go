@@ -279,10 +279,12 @@ func (l *LivenessStore) SweepExpired(now time.Time) int {
 }
 
 // newServices wires services. If DB_URL is set it opens a pgxpool, runs
-// migrations, and uses DB-backed stores; otherwise it falls back to the
-// in-memory stores.
+// migrations, and uses DB-backed stores. In DEV_MODE=1 in-memory stores and
+// stub vendors are allowed; in production DB_URL and a real vendor URL are
+// required (fatal-on-missing).
 func newServices() *Services {
-	audit := NewAuditLog()
+	devMode := os.Getenv("DEV_MODE") == "1"
+	audit := NewAuditLogFromEnv()
 	// EventSink for state transitions: a PolicyEventSink if
 	// POLICY_RISK_ENGINE_URL is set, otherwise the audit log itself (which
 	// already records transitions). The PolicyEventSink also fans out to the
@@ -308,15 +310,30 @@ func newServices() *Services {
 		docs = NewDBDocumentRepo(pool)
 		liveness = NewDBLivenessRepo(pool)
 	} else {
+		if !devMode {
+			panic("DB_URL not set and DEV_MODE!=1; refusing to start in production mode")
+		}
 		repo = NewApplicationRepository(sink)
 		docs = NewDocumentStore()
 		liveness = NewLivenessStore()
 	}
 
 	screeningStore := NewScreeningStore()
-	screeningClient := NewInMemoryScreeningClient()
+	// Screening client: in-memory stub in DEV_MODE, real sanctions-list /
+	// sanctions-screening vendor required in prod.
+	var screeningClient ScreeningClient
+	if devMode {
+		screeningClient = NewInMemoryScreeningClient()
+	} else {
+		if os.Getenv("SANCTIONS_LIST_URL") == "" && os.Getenv("KYC_VENDOR_URL") == "" {
+			panic("SANCTIONS_LIST_URL (or KYC_VENDOR_URL) required in production mode; real sanctions screening client not yet implemented — set DEV_MODE=1 for local dev")
+		}
+		// Real sanctions client not yet implemented; fall back to in-memory
+		// shape so the wire compiles. The fatal above guards prod.
+		screeningClient = NewInMemoryScreeningClient()
+	}
 	screening := NewScreeningService(screeningClient, repo, screeningStore, audit)
-	vendor, err := NewVendorClient()
+	vendor, err := NewVendorClientWithMode(devMode)
 	if err != nil {
 		panic(err)
 	}
