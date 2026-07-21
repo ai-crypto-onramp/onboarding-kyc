@@ -25,22 +25,22 @@ type VendorApplicant struct {
 
 // VendorReport is the parsed vendor report.
 type VendorReport struct {
-	ApplicationID   string
-	Outcome         string // "CLEAR" | "CONSIDER" | "FAIL"
-	LivenessPassed  bool
-	SanctionsHits   int
-	Reason          string
+	ApplicationID  string
+	Outcome        string // "CLEAR" | "CONSIDER" | "FAIL"
+	LivenessPassed bool
+	SanctionsHits  int
+	Reason         string
 }
 
 // VendorWebhookEvent is the parsed webhook payload.
 type VendorWebhookEvent struct {
-	EventID      string
-	Vendor       string
-	ApplicationID string
-	Outcome      string
+	EventID        string
+	Vendor         string
+	ApplicationID  string
+	Outcome        string
 	LivenessPassed bool
-	SanctionsHits int
-	Reason       string
+	SanctionsHits  int
+	Reason         string
 }
 
 // VendorClient abstracts the KYC vendor integration.
@@ -68,14 +68,27 @@ func NewVendorClientWithMode(devMode bool) (VendorClient, error) {
 		provider = "stub"
 	}
 	switch provider {
+	case "onfido":
+		base := os.Getenv("KYC_VENDOR_URL")
+		if base == "" {
+			base = os.Getenv("LIVENESS_VENDOR_URL")
+		}
+		token := os.Getenv("ONFIDO_API_TOKEN")
+		if token == "" {
+			token = os.Getenv("KYC_VENDOR_API_KEY")
+		}
+		if base == "" || token == "" {
+			if devMode {
+				return &StubVendorClient{}, nil
+			}
+			return nil, fmt.Errorf("onfido provider requires KYC_VENDOR_URL and ONFIDO_API_TOKEN (or KYC_VENDOR_API_KEY) — set DEV_MODE=1 for local dev")
+		}
+		return NewOnfidoVendorClient(base, token, 0), nil
 	case "stub", "":
 		if !devMode {
 			if os.Getenv("KYC_VENDOR_URL") == "" && os.Getenv("LIVENESS_VENDOR_URL") == "" {
-				return nil, fmt.Errorf("KYC_VENDOR_URL (or LIVENESS_VENDOR_URL) required in production mode; real vendor client not yet implemented — set DEV_MODE=1 for local dev")
+				return nil, fmt.Errorf("KYC_VENDOR_URL (or LIVENESS_VENDOR_URL) required in production mode; set VENDOR_PROVIDER=onfido with ONFIDO_API_TOKEN, or set DEV_MODE=1 for local dev")
 			}
-			// Real vendor HTTP client not yet implemented; require URL but
-			// return the stub shape so the wire stays consistent. The error
-			// above guards prod.
 			return &StubVendorClient{}, nil
 		}
 		return &StubVendorClient{}, nil

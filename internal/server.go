@@ -29,14 +29,14 @@ func NewAppError(code, msg string, status int) *AppError {
 }
 
 var (
-	errAppNotFound     = NewAppError("application_not_found", "application not found", http.StatusNotFound)
-	errBadJSON         = NewAppError("bad_json", "invalid JSON body", http.StatusBadRequest)
-	errMissingUserID   = NewAppError("missing_user_id", "user_id is required", http.StatusBadRequest)
-	errBadDocType      = NewAppError("bad_doc_type", "invalid document type", http.StatusBadRequest)
-	errDupApp          = NewAppError("duplicate_application", "active application already exists for user", http.StatusConflict)
-	errConflict        = NewAppError("version_conflict", "application was modified by another request", http.StatusConflict)
-	errIllegalTrans    = NewAppError("illegal_transition", "illegal state transition", http.StatusConflict)
-	errInternal        = NewAppError("internal_error", "internal server error", http.StatusInternalServerError)
+	errAppNotFound   = NewAppError("application_not_found", "application not found", http.StatusNotFound)
+	errBadJSON       = NewAppError("bad_json", "invalid JSON body", http.StatusBadRequest)
+	errMissingUserID = NewAppError("missing_user_id", "user_id is required", http.StatusBadRequest)
+	errBadDocType    = NewAppError("bad_doc_type", "invalid document type", http.StatusBadRequest)
+	errDupApp        = NewAppError("duplicate_application", "active application already exists for user", http.StatusConflict)
+	errConflict      = NewAppError("version_conflict", "application was modified by another request", http.StatusConflict)
+	errIllegalTrans  = NewAppError("illegal_transition", "illegal state transition", http.StatusConflict)
+	errInternal      = NewAppError("internal_error", "internal server error", http.StatusInternalServerError)
 )
 
 // errorEnvelope is the standard error response body.
@@ -163,7 +163,7 @@ type Services struct {
 
 // DocumentStore holds uploaded documents and liveness sessions in memory.
 type DocumentStore struct {
-	mu  sync.Mutex
+	mu   sync.Mutex
 	docs map[string][]Document
 }
 
@@ -319,17 +319,18 @@ func newServices() *Services {
 	}
 
 	screeningStore := NewScreeningStore()
-	// Screening client: in-memory stub in DEV_MODE, real sanctions-list /
-	// sanctions-screening vendor required in prod.
+	// Screening client: HTTP sanctions-list when SANCTIONS_LIST_URL is set;
+	// in-memory stub in DEV_MODE; in production a real sanctions client is
+	// required.
 	var screeningClient ScreeningClient
-	if devMode {
+	if u := os.Getenv("SANCTIONS_LIST_URL"); u != "" {
+		screeningClient = NewHTTPSanctionsClient(u, "", 0)
+	} else if devMode {
 		screeningClient = NewInMemoryScreeningClient()
 	} else {
-		if os.Getenv("SANCTIONS_LIST_URL") == "" && os.Getenv("KYC_VENDOR_URL") == "" {
-			panic("SANCTIONS_LIST_URL (or KYC_VENDOR_URL) required in production mode; real sanctions screening client not yet implemented — set DEV_MODE=1 for local dev")
+		if os.Getenv("KYC_VENDOR_URL") == "" {
+			panic("SANCTIONS_LIST_URL (or KYC_VENDOR_URL) required in production mode; set DEV_MODE=1 for local dev")
 		}
-		// Real sanctions client not yet implemented; fall back to in-memory
-		// shape so the wire compiles. The fatal above guards prod.
 		screeningClient = NewInMemoryScreeningClient()
 	}
 	screening := NewScreeningService(screeningClient, repo, screeningStore, audit)
@@ -453,7 +454,7 @@ func createApplicationHandler(s *Services) http.HandlerFunc {
 		if s.Vendor != nil {
 			vid, vErr := s.Vendor.CreateApplicant(r.Context(), VendorApplicant{
 				ApplicationID: app.ID,
-				UserID:         app.UserID,
+				UserID:        app.UserID,
 				FullName:      req.FullName,
 			})
 			if vErr == nil {
@@ -463,7 +464,7 @@ func createApplicationHandler(s *Services) http.HandlerFunc {
 				s.Repo.SetVendorApplicantID(app.ID, vid)
 				if s.Audit != nil {
 					s.Audit.Record(app.ID, "vendor_create_applicant", "system", map[string]any{
-						"vendor":          s.Vendor.Name(),
+						"vendor":              s.Vendor.Name(),
 						"vendor_applicant_id": vid,
 					})
 				}
@@ -484,9 +485,9 @@ func createApplicationHandler(s *Services) http.HandlerFunc {
 
 type applicationView struct {
 	Application
-	Documents      []Document        `json:"documents"`
-	Liveness       *LivenessSession  `json:"liveness,omitempty"`
-	SanctionsHits   []SanctionsHit    `json:"sanctions_hits,omitempty"`
+	Documents     []Document       `json:"documents"`
+	Liveness      *LivenessSession `json:"liveness,omitempty"`
+	SanctionsHits []SanctionsHit   `json:"sanctions_hits,omitempty"`
 }
 
 func getApplicationHandler(s *Services) http.HandlerFunc {
@@ -507,12 +508,12 @@ func getApplicationHandler(s *Services) http.HandlerFunc {
 }
 
 type statusResponse struct {
-	UserID          string     `json:"user_id"`
-	ApplicationID   string     `json:"application_id"`
-	State           State      `json:"state"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	DecidedAt       *time.Time `json:"decided_at,omitempty"`
-	ReKYCDueAt      *time.Time `json:"re_kyc_due_at,omitempty"`
+	UserID        string     `json:"user_id"`
+	ApplicationID string     `json:"application_id"`
+	State         State      `json:"state"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DecidedAt     *time.Time `json:"decided_at,omitempty"`
+	ReKYCDueAt    *time.Time `json:"re_kyc_due_at,omitempty"`
 }
 
 func getStatusHandler(s *Services) http.HandlerFunc {
@@ -744,8 +745,8 @@ func runScreeningHandler(s *Services) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"hits":          hits,
-			"manual_review":  manual,
-			"state":          app.State,
+			"manual_review": manual,
+			"state":         app.State,
 		})
 	}
 }
